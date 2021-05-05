@@ -127,3 +127,18 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+dist/
+torchlsq.egg-info/
+**/*.ipynb_checkpoints/
+*.txt
+*/**/*~
+*~
+docs/build
+.coverage
+htmlcov
+gen.yml
+.mypy_cache
+.vscode/
+*.orig
+*-checkpoint.ipynb
+torchlsq/version.py

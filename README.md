@@ -1,4 +1,4 @@
- Pytorch Observer implementation of Learned Step Size Quantization
+Pytorch Observer implementation of Learned Step Size Quantization
  (LSQ  https://arxiv.org/abs/1902.08153 and LSQ+ https://arxiv.org/abs/2004.09576).
  
  Can be considered as replacement of [FakeQuantize Observer in Pytorch](https://pytorch.org/docs/stable/torch.quantization.html#torch.quantization.FakeQuantize) and moreover it fully integrated in [torch.quantization](https://pytorch.org/docs/stable/quantization.html) environment
@@ -136,3 +136,4 @@ Additional options for shift layer:
 
 ## TO DO:
   1. Add unit tests
+
