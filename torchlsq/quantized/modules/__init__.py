@@ -1,1 +1,1 @@
-from .observers import LSQObserver
+from .observers import LSQFakeQuantize

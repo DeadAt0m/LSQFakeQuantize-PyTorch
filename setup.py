@@ -1,5 +1,5 @@
 MODULE_NAME = 'torchlsq' 
-MODULE_VERSION = '1.0'
+MODULE_VERSION = '2.0'
 STD_VERSION = "c++17"
 PYTORCH_VERSION = "1.7"
 
@@ -129,11 +129,11 @@ setup(
     # Metadata
     name=MODULE_NAME,
     version=MODULE_VERSION,
-    description='Implementation of Learned Step Size (LSQ+) quantization https://arxiv.org/pdf/2004.09576.pdf for PyTorch',
-    keywords=['LSQ','LSQ+', 'pytorch', 'quantization', 'Learned Step Size', 'lsqtorch', 'torchlsq'],
+    description='FakeQauntizer implementation with Learned Step Size (LSQ+) quantization https://arxiv.org/pdf/2004.09576.pdf for PyTorch',
+    keywords=['LSQ','LSQ+', 'pytorch', 'FakeQuantization', 'quantization', 'Learned Step Size', 'lsqtorch', 'torchlsq'],
     author='Ignatii Dubyshkin aka DeadAt0m',
     author_email='kheldi@yandex.ru',
-    url='https://github.com/DeadAt0m/LSQ-PyTorch',
+    url='https://github.com/DeadAt0m/LSQFakeQuantize-PyTorch',
     license='BSD',
 
     # Package info
