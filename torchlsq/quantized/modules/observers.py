@@ -328,8 +328,7 @@ class LSQFakeQuantize(torch.quantization.observer.ObserverBase):
                 shift = shift.to(self.shift.device).to(self.shift.dtype)
                 shift.resize_(self.shift.shape)
             self.shift.data.copy_(shift)
-        self.scale.requires_grad = bool(self.learning_enabled[0])
-        self.shift.requires_grad = bool(self.learning_enabled[0]) and self.is_affine
+
 
         
     @staticmethod
@@ -410,7 +409,7 @@ class LSQFakeQuantize(torch.quantization.observer.ObserverBase):
             tmin, tmax = TYPES_RANGE_MAPPING[self.dtype]['range']
             # do not need to learn params when work like FakeQuantizer
             self.scale.requires_grad = do_full_lsq
-            self.shift.requires_grad = do_full_lsq
+            self.shift.requires_grad = do_full_lsq and self.is_affine
 
             return lsq(x, self.scale, self.shift, self.quant_min, self.quant_max, tmin, tmax,
                            self.ch_axis, self.use_grad_scaling, self.grad_scaler,
