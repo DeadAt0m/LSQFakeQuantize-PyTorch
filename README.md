@@ -146,6 +146,7 @@ Additional options for the layer:
 ## VERSION HISTORY
 1.0 - First release, has a lot of bugs with zero_point and poor class design.
 2.0 - Full refactor of python part, most of known bugs fixed.
+2.1 - Replaced scale gradient; minor enhancements and bugfixes
 
 ## TO DO:
   1. Add unit tests

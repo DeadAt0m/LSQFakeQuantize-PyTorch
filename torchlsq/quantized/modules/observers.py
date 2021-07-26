@@ -369,10 +369,10 @@ class LSQFakeQuantizer(ObserverBase):
                 shift = shift.to(self.shift.device).to(self.shift.dtype)
                 shift.resize_(self.shift.shape)
             self.shift.data.copy_(shift)
-        
+   
     def set_weights(self, scale, zero_point=None, _init_device=torch.device('cpu')):  
         self._set_weights(scale, shift=None, zero_point=zero_point, _init_device=_init_device)    
-        
+
     @staticmethod
     def convert_shift_to_zp(shift, scale, dtype):
         '''
