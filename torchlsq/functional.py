@@ -37,16 +37,15 @@ def lsq(x: Tensor, scale: Tensor, shift: Tensor,
             Backward pass:
                 Consider, 1) zero_point = clamp(-shift/scale, type_min, type_max);
                           2) x_q = round(clamp(x/scale + zero_point, quant_min, quant_max));
-                          3) x̂ = (x - shift) / scale
 
                 w.r.t input: 1,  if ((quant_min < x_q) && (x_q < quant_max))
                              0,  otherwise
 
-                w.r.t scale: round(x̂) - x̂, if ((quant_min < x̂) && (x̂ < quant_max)) 
-                             quant_min,    if x̂ <= quant_min
-                             quant_max,    if x̂ >= quant_max
+                w.r.t scale: (x_r - x)/scale, if ((quant_min < x_q) && (x_q < quant_max)) 
+                             quant_min - zero_point,    if x_q <= quant_min
+                             quant_max - zero_point,    if x_q >= quant_max
 
-                w.r.t shfit:  0,  if ((quant_min < x̂) && x̂ < quant_max))
+                w.r.t shfit:  0,  if ((quant_min < x_q) && x_q < quant_max))
                               1,  otherwise
                                    
 
