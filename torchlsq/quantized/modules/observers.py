@@ -34,7 +34,42 @@ def IS_QSCHEME_SYMMETRIC(qscheme):
 ##############################
 
 
-class LSQFakeQuantize(torch.quantization.observer.ObserverBase):
+# REDEFINITE THE OBSERVER BASE FOR ITS COMPATIBILITY WITH PICKLE
+class _PartialWrapper(object):
+    def __init__(self, p):
+        self.p = p
+
+    def __call__(self, *args, **keywords):
+        return self.p(*args, **keywords)
+
+    def __repr__(self):
+        return self.p.__repr__()
+   
+
+def _with_args(cls_or_self, **kwargs):
+    r"""Wrapper that allows creation of class factories.
+
+    This can be useful when there is a need to create classes with the same
+    constructor arguments, but different instances.
+
+    Example::
+
+        >>> Foo.with_args = classmethod(_with_args)
+        >>> foo_builder = Foo.with_args(a=3, b=4).with_args(answer=42)
+        >>> foo_instance1 = foo_builder()
+        >>> foo_instance2 = foo_builder()
+        >>> id(foo_instance1) == id(foo_instance2)
+        False
+    """
+    r = _PartialWrapper(partial(cls_or_self, **kwargs))
+    r.with_args = _with_args
+    return r
+
+
+class ObserverBase(torch.quantization.observer.ObserverBase):
+    with_args = classmethod(_with_args)
+
+class LSQFakeQuantizer(ObserverBase):
     '''
         Pytorch FakeQuantizer Observer with Learned Step Size Quantization(LSQ+) (https://arxiv.org/abs/2004.09576)
         
@@ -54,18 +89,17 @@ class LSQFakeQuantize(torch.quantization.observer.ObserverBase):
         
             Backward pass:
                 Consider, 1) zero_point = clamp(-shift/scale, type_min, type_max);
-                          2) x_iq = round(clamp(x/scale + zero_point, quant_min, quant_max));
-                          3) x̂ = (x - shift) / scale
+                          2) x_q = round(clamp(x/scale + zero_point, quant_min, quant_max));
 
-                w.r.t input: 1,  if ((quant_min < x_iq) && (x_iq < quant_max))
+                w.r.t input: 1,  if ((quant_min < x_q) && (x_q < quant_max))
                              0,  otherwise
 
-                w.r.t scale: round(x̂) - x̂, if ((quant_min < x̂) && (x̂ < quant_max)) 
-                             quant_min,    if x̂ <= quant_min
-                             quant_max,    if x̂ >= quant_max
+                w.r.t scale: (x_r - x)/scale, if ((quant_min < x_q) && (x_q < quant_max)) 
+                             quant_min - zero_point,    if x_q <= quant_min
+                             quant_max - zero_point,    if x_q >= quant_max
 
-                w.r.t shfit:  0,  if ((quant_min < x̂) && (x̂ < quant_max))
-                              1, otherwise
+                w.r.t shfit:  0,  if ((quant_min < x_q) && x_q < quant_max))
+                              1,  otherwise
 
         Based on article we support scaling of derivatives on `scale` and `shift` on 1/sqrt(n_elements(x)*quant_max)
         (See https://arxiv.org/abs/1902.08153 for details)
@@ -275,7 +309,7 @@ class LSQFakeQuantize(torch.quantization.observer.ObserverBase):
 
 
 
-    def _init_weights(self, x: Tensor) -> None:
+    def _init_weights(self, x: Tensor, _init_device=torch.device('cpu')) -> None:
         '''
             Dynamically initialized weights for first time, required the example of input tensor.
 
@@ -283,13 +317,14 @@ class LSQFakeQuantize(torch.quantization.observer.ObserverBase):
 
             Arguments:
                 x(torch.Tensor) - input tensor, which used for dynamic parameter initialization
+                _init_device(torch.device) - device for technical initialization . Default: CPU
         '''
         self._initialized = True
-        size = x.shape[self.ch_axis] if self.is_perchannel else 1
+        size = x.shape[self.ch_axis] if (self.is_perchannel and x is not None) else 1
         size = (size,)
-        device = x.device
+        device = x.device if x is not None else _init_device
         scale = torch.full(size, self.init_scale, dtype=torch.float32).to(device)
-        if self.otype == 0: # init scale properly for weights
+        if self.otype == 0 and x is not None: # init scale properly for weights
             x = x.detach()
             reduction_axes = list(range(x.ndim))
             del reduction_axes[self.ch_axis]
@@ -306,7 +341,7 @@ class LSQFakeQuantize(torch.quantization.observer.ObserverBase):
 
 
 
-    def _set_weights(self, scale=None, shift=None, zero_point=None):
+    def _set_weights(self, scale=None, shift=None, zero_point=None, _init_device=torch.device('cpu')):
         '''
             Safely set LSQ params such scale and shift.
 
@@ -314,7 +349,13 @@ class LSQFakeQuantize(torch.quantization.observer.ObserverBase):
                 scale(torch.tensor) - scale tensor, which data will be copied to inner scale parameter
                 shift(torch.tensor) - shift tensor, which data will be copied to inner shift parameter
                 zero_point(torch.tensor) - will be converted to shift first, and than copied to inner shift parameter
+                _init_device(torch.device) - device for technical initialization (read comments below). Default: CPU
         '''
+        if self.scale is None:
+            # technical init if required (happens in situation when set_wights call instantly after class initialization)
+            # work in per_tensor mode only!
+            self._init_weights(None, _init_device=_init_device)
+        
         if scale is not None:
             with torch.no_grad():
                 scale = scale.to(self.scale.device).to(self.scale.dtype)
@@ -328,9 +369,10 @@ class LSQFakeQuantize(torch.quantization.observer.ObserverBase):
                 shift = shift.to(self.shift.device).to(self.shift.dtype)
                 shift.resize_(self.shift.shape)
             self.shift.data.copy_(shift)
+   
+    def set_weights(self, scale, zero_point=None, _init_device=torch.device('cpu')):  
+        self._set_weights(scale, shift=None, zero_point=zero_point, _init_device=_init_device)    
 
-
-        
     @staticmethod
     def convert_shift_to_zp(shift, scale, dtype):
         '''
@@ -417,6 +459,7 @@ class LSQFakeQuantize(torch.quantization.observer.ObserverBase):
                            eval_mode=(not do_full_lsq), init_mode=bool(do_backprop_init))
         return x    
     
+    @torch.jit.export
     def extra_repr(self):
         is_initialized = '' if self._initialized else '(Uninitialized!) '
         scale, shift, zp = self.calculate_qparams(verbose=False, need_shift=True)
@@ -425,11 +468,14 @@ class LSQFakeQuantize(torch.quantization.observer.ObserverBase):
         is_initialized += f'(Observer in parameter init mode: {self.init_mode}; {self.current_batch[0]}/{self.n_batches} batches left) ' if self.check_is_init_mode() else ''
         if self.debug_mode:
             return 'Debug mode: ON, doing nothing.'
-        return "{}Observer for {}; Qtype:{}, Affine:{}, PerChannel:{}, Qrange:[{},{}], scale={}, zero_point={} (shift={}).".format(is_initialized,
-                                                                                                                                   for_weights,
-                                                                                                                                   self.dtype,
-                                                                                                                                   self.is_affine,
-                                                                                                                                   per_channel,
-                                                                                                                                   self.quant_min,
-                                                                                                                                   self.quant_max,
-                                                                                                                                   scale, zp, shift)
+        info_str = "{}Observer for {}; Learnable:{}; Observer:{}; FakeQuant:{}; "\
+                   "Qtype:{}, Affine:{}, PerChannel:{}, Qrange:[{},{}], scale={}, zero_point={} (shift={})."
+        torch.set_printoptions(threshold=8)
+        info_str = info_str.format(is_initialized, for_weights, bool(self.learning_enabled[0]),
+                                   bool(self.observer_enabled[0]), bool(self.fake_quant_enabled[0]),
+                                   self.dtype, self.is_affine, per_channel,
+                                   self.quant_min, self.quant_max, scale, zp, shift)
+        if hasattr(self, 'recalibrated'):
+            info_str += '\nModule was recalibrated!'
+        torch.set_printoptions(threshold=1000)
+        return info_str

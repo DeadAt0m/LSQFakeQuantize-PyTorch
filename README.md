@@ -11,7 +11,7 @@ Pytorch FakeQuantizer Observer with Learned Step Size Quantization(LSQ+) (https:
 The Pytorch quantization scheme is `x_q = round(clamp(x/scale + zero_point,quant_min,quant_max)`; 
                                          where `zero_point` is integer and have same type as `x_q`.
             
-In the article, however, used another approach: `x_q = round(clamp((x - shift)/scale,quant_min,quant_max)`; 
+In the article, however, used another approach: ```x_q = round(clamp((x - shift)/scale,quant_min,quant_max)`; 
 `shift` - have float type here. We adapt such scheme via implicit conversion of `shift` to `zero_point`
             
 Following article, LSQ+ emulate the quantization and dequantization of input treating `scale` and `shift` as learnable parameters.
@@ -19,7 +19,6 @@ Following article, LSQ+ emulate the quantization and dequantization of input tre
 ### Forward pass
 
   (quantize->dequantize):
-  
     1) Emualate zero_point behaviour zero_point = clamp(-shift/scale, type_min, type_max); where type_min(type_max) is min(max) of quantized type (i.e int8/uint8)
     2) Quantized: x_q = round(clamp(x/scale + zero_point, quant_min, quant_max)
     3) Dequantized: x_r = x_q * scale + shift
@@ -66,8 +65,7 @@ Following article, LSQ+ emulate the quantization and dequantization of input tre
   ***b)*** Alternatively, their is possibility to initialize `scale` and `shift` via  observer.
            We highly suggest use the [MovingAverage(PerChannel)MinMaxObserver](https://pytorch.org/docs/stable/torch.quantization.html#torch.quantization.MovingAverageMinMaxObserver) to track running min and max values
                 
-  For control a) and b) use `init_mode` argument during initialization.
-  
+  For control a) and b) use `init_mode` argument during initialization 
   The number of batches during which initialization happens controls by `n_batches`.
 
 * LSQ can work with any bitrate, however for Pytorch compatiblity, we limited bitrate from above to 8-bit.
@@ -147,8 +145,8 @@ Additional options for the layer:
                                                                                 
 ## VERSION HISTORY
 1.0 - First release, has a lot of bugs with zero_point and poor class design.
-
 2.0 - Full refactor of python part, most of known bugs fixed.
+2.1 - Replaced scale gradient; minor enhancements and bugfixes
 
 ## TO DO:
   1. Add unit tests

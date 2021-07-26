@@ -10,7 +10,7 @@ API_HOST API_DEVICE API_INLINE scalar_t lsq_forward_kernel_per_tensor(scalar_t x
                                                                       bool init_mode)
 {
     const scalar_t zp = static_cast<scalar_t>(FASTROUND(FMIN(tmax, FMAX(tmin, -b*inv_s))));
-    return init_mode?x:(static_cast<scalar_t>(FASTROUND(FMIN(qmax, FMAX(qmin, x * inv_s + zp)))) * s + b);
+    return init_mode?x:(static_cast<scalar_t>((FASTROUND(FMIN(qmax, FMAX(qmin, x * inv_s + zp))) - zp) * s));
 }
 
 
@@ -50,14 +50,14 @@ API_HOST API_DEVICE API_INLINE scalar_t lsq_backward_kernel_per_tensor_dS(scalar
                                                                           bool init_mode){
     const scalar_t zp = static_cast<scalar_t>(FASTROUND(FMIN(tmax, FMAX(tmin, -b*inv_s))));
     const scalar_t xq = FMAX(FMIN(x * inv_s + zp, qmax), qmin);
-    const scalar_t x_hat = (x - b) * inv_s;
-    const bool mask = ((qmin < x_hat) && (x_hat < qmax));
+    const bool mask = ((qmin < xq) && (xq < qmax));
     // directly minimize ||x_r - x||F^2 for initialization s and zp via optimizer
     // replace grad on  d(||x_r - x||F^2)/dx_r = 2*(x_r - x)
-    const scalar_t _grad = init_mode?static_cast<scalar_t>(2*(FASTROUND(xq) * s + b - x)):grad; 
+    const scalar_t xfq = (FASTROUND(xq) - zp) * s;
+    const scalar_t _grad = init_mode?static_cast<scalar_t>(2*(xfq-x)):grad;  
     // scale grad
-    const scalar_t border_scale = (qmin >= x_hat)?(_grad*qmin):(_grad*qmax);
-    const scalar_t dS = mask?(_grad * (static_cast<scalar_t>(FASTROUND(x_hat)) - x_hat)):border_scale;   
+    const scalar_t border_scale = (xq <= qmin)?(_grad*(qmin - zp)):(_grad*(qmax - zp));
+    const scalar_t dS = mask?static_cast<scalar_t>(_grad*(xfq-x)*inv_s):border_scale;  
     return dS*grad_scaler;
 }
 
@@ -76,11 +76,11 @@ API_HOST API_DEVICE API_INLINE scalar_t lsq_backward_kernel_per_tensor_dB(scalar
                                                                           bool init_mode){
     const scalar_t zp = static_cast<scalar_t>(FASTROUND(FMIN(tmax, FMAX(tmin, -b*inv_s))));
     const scalar_t xq = FMAX(FMIN(x * inv_s + zp, qmax), qmin);
-    const scalar_t x_hat = (x - b) * inv_s;
-    const bool mask = ((qmin < x_hat) && (x_hat < qmax));
+    const bool mask = ((qmin < xq) && (xq < qmax));
     // directly minimize ||x_r - x||F^2 for initialization s and zp via optimizer
     // replace grad on  d(||x_r - x||F^2)/dx_r = 2*(x_r - x)
-    const scalar_t _grad = init_mode?static_cast<scalar_t>(2*(FASTROUND(xq) * s + b - x)):grad;  
+    const scalar_t xfq = (FASTROUND(xq) - zp) * s;
+    const scalar_t _grad = init_mode?static_cast<scalar_t>(2*(xfq-x)):grad;   
     // shift grad (during symmetric quantization, do not pass grad for shift)
     const scalar_t dB = sym?static_cast<scalar_t>(0):(static_cast<scalar_t>(!mask)*_grad);      
     return dB*grad_scaler;
@@ -106,19 +106,19 @@ API_HOST API_DEVICE API_INLINE STDLIB::tuple<scalar_t, scalar_t, scalar_t> lsq_b
 {
     const scalar_t zp = static_cast<scalar_t>(FASTROUND(FMIN(tmax, FMAX(tmin, -b*inv_s))));
     const scalar_t xq = FMAX(FMIN(x * inv_s + zp, qmax), qmin);
-    const scalar_t x_hat = (x - b) * inv_s;
-    const bool imask = ((qmin < xq) && (xq < qmax));
-    const bool mask = ((qmin < x_hat) && (x_hat < qmax));
+    const bool mask = ((qmin < xq) && (xq < qmax));
+    
     // during initialization, just pass grad without changes
-    const scalar_t dX = init_mode?grad:(grad * static_cast<scalar_t>(imask));
+    const scalar_t dX = init_mode?grad:(grad * static_cast<scalar_t>(mask));
     // directly minimize ||x_r - x||F^2 for initialization s and zp via optimizer
     // replace grad on  d(||x_r - x||F^2)/dx_r = 2*(x_r - x)
-    const scalar_t _grad = init_mode?static_cast<scalar_t>(2*(FASTROUND(xq) * s + b - x)):grad;  
+    const scalar_t xfq = (FASTROUND(xq) - zp) * s;
+    const scalar_t _grad = init_mode?static_cast<scalar_t>(2*(xfq-x)):grad;  
     // shift grad (during symmetric quantization, do not pass grad for shift)
     const scalar_t dB= sym?static_cast<scalar_t>(0):(static_cast<scalar_t>(!mask)*_grad);   
     // scale grad
-    const scalar_t border_scale = (qmin >= x_hat)?(_grad*qmin):(_grad*qmax);
-    const scalar_t dS = mask?(_grad *(FASTROUND(x_hat) - x_hat)):border_scale; 
+    const scalar_t border_scale = (xq <= qmin)?(_grad*(qmin - zp)):(_grad*(qmax - zp));
+    const scalar_t dS = mask?static_cast<scalar_t>(_grad*(xfq-x)*inv_s):border_scale;  
     return {dX, dS*grad_scaler, dB*grad_scaler};
 }
 
@@ -254,5 +254,3 @@ API_HOST API_DEVICE API_INLINE STDLIB::tuple<scalar_t, scalar_t, scalar_t> lsq_b
     const scalar_t inv_s = static_cast<scalar_t>(1)/_s;  
     return lsq_backward_kernel_per_tensor_eval(grad, x, _s, inv_s, b, qmin, qmax, tmin, tmax, init_mode);
 }
-
-
