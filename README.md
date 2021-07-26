@@ -17,11 +17,11 @@ In the article, however, used another approach: ```x_q = round(clamp((x - shift)
 Following article, LSQ+ emulate the quantization and dequantization of input treating `scale` and `shift` as learnable parameters.
 
 ### Forward pass
-
   (quantize->dequantize):
-    1) Emualate zero_point behaviour zero_point = clamp(-shift/scale, type_min, type_max); where type_min(type_max) is min(max) of quantized type (i.e int8/uint8)
-    2) Quantized: x_q = round(clamp(x/scale + zero_point, quant_min, quant_max)
-    3) Dequantized: x_r = x_q * scale + shift
+  
+     1) Emualate zero_point behaviour zero_point = clamp(-shift/scale, type_min, type_max); where type_min(type_max) is min(max) of quantized type (i.e int8/uint8)
+     2) Quantized: x_q = round(clamp(x/scale + zero_point, quant_min, quant_max)
+     3) Dequantized: x_r = x_q * scale + shift
 
 ### Backward pass  
 
@@ -143,9 +143,11 @@ Additional options for the layer:
                                                                                   
                                                                                 
 ## VERSION HISTORY
-1.0 - First release, has a lot of bugs with zero_point and poor class design.
-2.0 - Full refactor of python part, most of known bugs fixed.
-2.1 - Replaced scale gradient; minor enhancements and bugfixes
+ 1.0 - First release, has a lot of bugs with zero_point and poor class design.
+ 
+ 2.0 - Full refactor of python part, most of known bugs fixed.
+ 
+ 2.1 - Replaced scale gradient; minor enhancements and bugfixes
 
 ## TO DO:
   1. Add unit tests
