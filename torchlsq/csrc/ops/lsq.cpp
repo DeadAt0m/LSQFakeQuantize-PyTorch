@@ -134,7 +134,7 @@ torch::Tensor lsq(const torch::Tensor& x,
 }
 
     
-SO_TORCH_LIBRARY_FRAGMENT(torchlsq, m) {
+TS_TORCH_LIBRARY_FRAGMENT(torchlsq, m) {
     m.def(TORCH_SELECTIVE_SCHEMA(
           "torchlsq::lsq_forward_per_tensor(Tensor x, Tensor scale, Tensor shift, int quant_min, int quant_max, int type_min, int type_max, bool use_grad_scaling, float grad_scaler, bool sym, bool eval_mode, bool init_mode) -> Tensor"));
     m.def(TORCH_SELECTIVE_SCHEMA(
