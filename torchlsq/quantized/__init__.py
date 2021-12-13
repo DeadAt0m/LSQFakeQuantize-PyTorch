@@ -1,5 +1,5 @@
 import torch
-from .modules.observers import LSQFakeQuantize
+from .modules.observers import LSQFakeQuantizer
 
 
 def disable_fake_quant(mod):
