@@ -4,7 +4,7 @@ Pytorch FakeQuantizer Observer with Learned Step Size Quantization(LSQ+) (https:
  Can be considered as replacement of [FakeQuantize Observer in Pytorch](https://pytorch.org/docs/stable/torch.quantization.html#torch.quantization.FakeQuantize) and moreover it fully integrated in [torch.quantization](https://pytorch.org/docs/stable/quantization.html) environment
 
 (**I am not the author** any of mentioned articles, I just implement this for my own purposes)
-## !FOR PYTORCH >= 1.7! ##
+## !1.9 >= FOR PYTORCH >= 1.7! ##
 
 ## Theory
  
