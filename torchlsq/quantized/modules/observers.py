@@ -171,17 +171,20 @@ class LSQFakeQuantizer(ObserverBase):
                  use_grad_scaling=True, grad_scaler=1.,
                  avoid_torch_overflow=True, debug_mode=False, **observer_kwargs):
         super().__init__(dtype)
-        assert inspect.isclass(observer), 'awaited Observer class not instance or function wrapper'
-        # create proper observe_kwargs
-        req_keys = set(inspect.signature(observer.__init__).parameters.keys())
-        observer_kwargs['reduce_range'] = avoid_torch_overflow 
-        src_keys = set(self.__init__.__code__.co_varnames + tuple(observer_kwargs.keys()))
-        avail_keys = req_keys.intersection(src_keys)
-        avail_keys.remove('self')
-        new_observer_kwargs = dict()
-        for k in avail_keys:
-            new_observer_kwargs[k] = locals()[k] if k in locals() else observer_kwargs[k] 
-        self.activation_post_process = observer(**new_observer_kwargs)
+        assert init_mode in ('learnable', 'observer'), f'only following modes available: {("learnable", "observer")}'
+        self.activation_post_process = None
+        if init_mode == 'observer':
+            assert inspect.isclass(observer), 'awaited Observer class not instance or function wrapper'
+            # create proper observe_kwargs
+            req_keys = set(inspect.signature(observer.__init__).parameters.keys())
+            observer_kwargs['reduce_range'] = avoid_torch_overflow 
+            src_keys = set(self.__init__.__code__.co_varnames + tuple(observer_kwargs.keys()))
+            avail_keys = req_keys.intersection(src_keys)
+            avail_keys.remove('self')
+            new_observer_kwargs = dict()
+            for k in avail_keys:
+                new_observer_kwargs[k] = locals()[k] if k in locals() else observer_kwargs[k] 
+            self.activation_post_process = observer(**new_observer_kwargs)
      
         assert otype in tuple(OTYPES.keys()), f'otype must be on of {tuple(OTYPES.keys())}, but {self.otype} is given'
         self.otype = OTYPES[otype]
@@ -194,7 +197,6 @@ class LSQFakeQuantizer(ObserverBase):
             # 0 - for weights, 1 - for activation
             self.ch_axis = int(bool(self.otype))
         
-        assert init_mode in ('learnable', 'observer'), f'only following modes available: {("learnable", "observer")}'
         self.init_mode = init_mode
         self.n_batches = init_batches 
         self.use_grad_scaling = use_grad_scaling
