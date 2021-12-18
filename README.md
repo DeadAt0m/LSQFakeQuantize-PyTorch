@@ -119,7 +119,7 @@ Code example (How to setup Qconfig):
                                                                 init_mode=init_mode,
                                                                 avoid_torch_overflow=True, # 7bits), 
                           weight=LSQFakeQuantizer.with_args(observer=wei_ext_obs,
-                                                            otype='activation',
+                                                            otype='weight',
                                                             dtype=torch.qint8,
                                                             qscheme=torch.per_channel_symmetric,
                                                             init_mode=init_mode,
