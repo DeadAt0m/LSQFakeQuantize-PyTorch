@@ -98,16 +98,39 @@ Following article, LSQ+ emulate the quantization and dequantization of input tre
 ## Using:
 **We strictly recommend to study the [Pytorch Quantization](https://pytorch.org/docs/stable/quantization.html) manuals (how to prepare the model and how the observers concept work) before using, because this LSQFakeQuantize implementation is part of it!**
 
-Code example:
+**After preparing model to quantization, you MUST make the test forward pass BEFORE add model parameters to OPTIMIZATOR! **
+
+Code example (How to setup Qconfig):
     
+    import torch
     from torch.quantization import QConfig
-    from torchlsq import LSQFakeQuantize
-    lsq_qconfig = QConfig(activation=LSQObserver.with_args(dtype=torch.quint8), weight=LSQObserver.with_args(dtype=torch.qint8))
+    from torchlsq import LSQFakeQuantizer
+    
+    act_ext_obs = torch.quantization.MovingAverageMinMaxObserver
+    wei_ext_obs = torch.quantization.MovingAveragePerChannelMinMaxObserver
+    init_mode = 'observer' # this will initialize the params via ext_obs above, based on tracked statistic 
+    # init_mode = 'learnable' # initialization like in LSQ+ article
+    
+    if init_mode != 'observer':
+       act_ext_obs = wei_ext_obs = None
+
+    lsq_qconfig = QConfig(activation=LSQFakeQuantizer.with_args(observer=act_ext_obs, 
+                                                                otype='activation', 
+                                                                init_mode=init_mode,
+                                                                avoid_torch_overflow=True, # 7bits), 
+                          weight=LSQFakeQuantizer.with_args(observer=wei_ext_obs,
+                                                            otype='activation',
+                                                            dtype=torch.qint8,
+                                                            qscheme=torch.per_channel_symmetric,
+                                                            init_mode=init_mode,
+                                                            avoid_torch_overflow=False, # 8bits))
+     
 
 
 Additional options for the layer:
 
     observer(torch.quantization.ObserverBase) - Module for observing statistics on input tensors and calculating scale and zero-point.
+                                                Will be used only if `init_mode == "observer"`. In other case, have no effect.
 
     otype(str) - Type specification for which LSQ will used. Can be one of (`weight`, `activation`)
 
