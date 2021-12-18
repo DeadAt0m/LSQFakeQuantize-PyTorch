@@ -98,7 +98,7 @@ Following article, LSQ+ emulate the quantization and dequantization of input tre
 ## Using:
 **We strictly recommend to study the [Pytorch Quantization](https://pytorch.org/docs/stable/quantization.html) manuals (how to prepare the model and how the observers concept work) before using, because this LSQFakeQuantize implementation is part of it!**
 
-**After preparing model to quantization, you MUST make the test forward pass BEFORE add model parameters to OPTIMIZATOR! **
+**After preparing model to quantization, you MUST make a test forward pass (at least with random tensor) BEFORE adding model parameters to OPTIMIZATOR!**
 
 Code example (How to setup Qconfig):
     
